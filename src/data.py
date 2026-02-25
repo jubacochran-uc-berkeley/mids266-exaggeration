@@ -199,29 +199,36 @@ def load_splits(k: int = 5, seed: int = 7, splits_dir=SPLITS_DIR) -> dict:
         return json.load(f)
 
 
-def get_fold_from_disk(full_df: pd.DataFrame, fold: int, k: int = 5, seed: int = 7):
+def get_fold_from_disk(full_df: pd.DataFrame, fold: int = None, k: int = 5, seed: int = 7):
     """
-    Load a specific fold's train/val DataFrames from saved indices.
+    Load fold train/val DataFrames from saved indices.
 
     full_df must be the same pooled DataFrame (same row order) that
     was passed to save_splits(). Guaranteed by: concat([train, test], ignore_index=True).
 
     :param full_df: pooled dataframe (same as passed to save_splits)
     :type full_df: pd.DataFrame
-    :param fold: fold index (0 to k-1)
-    :type fold: int
+    :param fold: fold index (0 to k-1), or None for all folds
+    :type fold: int or None
     :param k: number of folds
     :type k: int
     :param seed: random_state used when splits were generated
     :type seed: int
     """
     splits = load_splits(k=k, seed=seed)
-    fold_info = splits["folds"][fold]
 
-    train_idx = fold_info["train_indices"]
-    val_idx = fold_info["val_indices"]
+    if fold is not None:
+        fold_info = splits["folds"][fold]
+        train_idx = fold_info["train_indices"]
+        val_idx = fold_info["val_indices"]
+        return full_df.iloc[train_idx].copy(), full_df.iloc[val_idx].copy()
 
-    return full_df.iloc[train_idx].copy(), full_df.iloc[val_idx].copy()
+    train_dfs, val_dfs = [], []
+    for f in range(k):
+        fold_info = splits["folds"][f]
+        train_dfs.append(full_df.iloc[fold_info["train_indices"]].copy())
+        val_dfs.append(full_df.iloc[fold_info["val_indices"]].copy())
+    return train_dfs, val_dfs
 
 
 # =====================================================================
