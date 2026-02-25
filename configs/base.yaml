@@ -14,8 +14,8 @@ report_to: "none" # researched this isn't useful until after we complete hypertu
 optim: "adamw_torch_fused" #by #T5 fixed their optimizer ours defaults here.
 
 #current search space best trial RoBERTa-base, 5 fold, Optuna trial 49 f1 = 0.58252
-learning_rate: 3.22738e-5
+learning_rate: 2.5873758209424307e-05
 per_device_train_batch_size: 8
-weight_decay: 0.06784
-warmup_ratio: 0.01656
-num_train_epochs: 15
+weight_decay: 0.08645440342049153
+warmup_ratio: 0.05761304616532463
+num_train_epochs: 19
