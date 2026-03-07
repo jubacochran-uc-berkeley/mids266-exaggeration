@@ -9,7 +9,7 @@ useage:
 import json
 import numpy as np
 from datasets import load_dataset, Dataset, DatasetDict
-from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import StratifiedKFold, train_test_split
 from pyprojroot import here
 import pandas as pd
 pd.set_option("display.max_colwidth", 120)
@@ -45,105 +45,118 @@ print(full_data['train'])
 # Processing
 # =====================================================================
 
-def process_full_data(train_data: Dataset, test_data: Dataset):
-    """
-    Convert HF Dataset train/test splits pandas DataFrames and encodes. The splits are preserved as is.
-
-    :param train_data: HF train split
-    :param test_data: HF test split
-    """
+def process_and_pool_data(train_data, test_data):
     train_df = train_data.to_pandas()
-    train_df["exaggeration_label"] = (
-        train_df["exaggeration_label"].astype(str).str.strip().replace(ENCODED_LABELS).astype(int)
-    )
-    bad_train = train_df["exaggeration_label"].apply(lambda x: not isinstance(x, (int, np.integer)))
-    assert not bad_train.any(), f"Unmapped labels in train: {train_df.loc[bad_train, 'exaggeration_label'].unique()}"
-
     test_df = test_data.to_pandas()
-    test_df["exaggeration_label"] = (
-        test_df["exaggeration_label"].astype(str).str.strip().replace(ENCODED_LABELS).astype(int)
+
+    full_df = pd.concat([train_df, test_df], ignore_index=True)
+
+    full_df["exaggeration_label"] = (
+        full_df["exaggeration_label"]
+        .astype(str)
+        .str.strip()
+        .replace(ENCODED_LABELS)
+        .astype(int)
     )
-    bad_test = test_df["exaggeration_label"].apply(lambda x: not isinstance(x, (int, np.integer)))
-    assert not bad_test.any(), f"Unmapped labels in test: {test_df.loc[bad_test, 'exaggeration_label'].unique()}"
 
-    return train_df, test_df
+    bad = full_df["exaggeration_label"].apply(lambda x: not isinstance(x, (int, np.integer)))
+    assert not bad.any(), f"Unmapped labels: {full_df.loc[bad, 'exaggeration_label'].unique()}"
 
-train_df, test_df = process_full_data(full_data['train'], full_data['test'])
+    return full_df
 
+full_df = process_and_pool_data(full_data["train"], full_data["test"])
 
 # =====================================================================
-# Stratified KFold Splits
+# Holdout test data and make stratified KFold splits on training data
 # =====================================================================
 
-def strat_kfold_splits_all(df_train: pd.DataFrame, df_test: pd.DataFrame, splits: int = 5):
+def make_train_dev_test_split(full_df, test_size=0.2, seed=7):
     """
-    Docstring for strat_kfold_splits_all
-
-    :param df_train: encoded train dataframe
-    :type df_train: pd.DataFrame
-    :param df_test: encoded test dataframe
-    :type df_test: pd.DataFrame
-    :param splits: number of kfold splits
-    :type splits: int
+    Create a held-out test set from the pooled dataframe.
     """
-    # combining so we train on all labels using crossfold validation
-    # we're using stratified kfold to preserve the population variance of labels across folds
-    full_df = pd.concat([df_train, df_test], ignore_index=True)
-
     y = full_df["exaggeration_label"].astype(int)
-    X = np.zeros(len(full_df))
 
-    print(full_df["exaggeration_label"].dtype)
-    print(full_df["exaggeration_label"].unique())
+    train_dev_idx, test_idx = train_test_split(
+        np.arange(len(full_df)),
+        test_size=test_size,
+        stratify=y, #keep class balance the same in test and training
+        random_state=seed,
+    )
 
-    skf = StratifiedKFold(n_splits=splits, shuffle=True, random_state=7)
-    print(f"applying split of: {splits}")
+    print(f"Created held-out split: train_dev={len(train_dev_idx)} test={len(test_idx)}")
+    return train_dev_idx, test_idx
+
+
+def strat_kfold_splits_train_dev(full_df, train_dev_idx, splits=5, seed=7):
+    """
+    Run stratified k-fold only on the train_dev subset.
+    Returns folds as global indices into full_df.
+    """
+    train_dev_df = full_df.iloc[train_dev_idx].copy()
+
+    y = train_dev_df["exaggeration_label"].astype(int)
+    X = np.zeros(len(train_dev_df))
+
+    print(train_dev_df["exaggeration_label"].dtype)
+    print(train_dev_df["exaggeration_label"].unique())
+
+    skf = StratifiedKFold(n_splits=splits, shuffle=True, random_state=seed)
+    print(f"Applying split of: {splits}")
 
     folds = []
-    for i, (train_index, val_index) in enumerate(skf.split(X, y), start=1):
-        print(f"Fold {i}: train={len(train_index)} val={len(val_index)}")
-        folds.append((train_index, val_index))
+    for i, (train_local, val_local) in enumerate(skf.split(X, y), start=1):
+        # map back to global indices in full_df
+        train_global = train_dev_df.iloc[train_local].index.to_numpy()
+        val_global = train_dev_df.iloc[val_local].index.to_numpy()
 
-    return full_df, folds
+        print(f"Fold {i}: train={len(train_global)} val={len(val_global)}")
+        folds.append((train_global, val_global))
 
-full_dataset, kfold_val = strat_kfold_splits_all(train_df, test_df)
+    return folds
+
+train_dev_indices, test_indices = make_train_dev_test_split(full_df, test_size=0.2, seed=7)
+kfold_val = strat_kfold_splits_train_dev(full_df, train_dev_indices, splits=5, seed=7)
+full_dataset = full_df
 
 
 # =====================================================================
 # Save Splits to Disk
 # =====================================================================
 
-def save_splits(full_df: pd.DataFrame, folds: list, output_dir=SPLITS_DIR, k: int = 5, seed: int = 7):
+def save_splits(full_df, train_dev_indices, test_indices, folds, output_dir=SPLITS_DIR, k=5, seed=7, test_size=0.2):
     """
-    Save fold indices and metadata to a JSON file. Indices only — small, diffable, version-controllable.
-
-    :param full_df: pooled dataframe with encoded labels
-    :type full_df: pd.DataFrame
-    :param folds: list of (train_index, val_index) tuples from StratifiedKFold
-    :type folds: list
-    :param output_dir: where to write the JSON
-    :param k: number of folds
-    :type k: int
-    :param seed: random_state used in StratifiedKFold
-    :type seed: int
+    Save held-out test indices plus cross fold validation indices to JSON.
     """
     label_counts = full_df["exaggeration_label"].value_counts().to_dict()
+
+    train_dev_labels = full_df.iloc[train_dev_indices]["exaggeration_label"]
+    test_labels = full_df.iloc[test_indices]["exaggeration_label"]
 
     splits = {
         "metadata": {
             "dataset": DATASET_NAME,
             "n_examples": len(full_df),
+            "n_train_dev": len(train_dev_indices),
+            "n_test": len(test_indices),
             "k": k,
             "seed": seed,
+            "test_size": test_size,
             "label_map": DECODED_LABELS,
             "label_distribution": {
                 DECODED_LABELS[lbl]: int(cnt) for lbl, cnt in sorted(label_counts.items())
             },
-            "pooling_rationale": (
-                "HF train/test split (100/563) was designed for MT-PET "
-                "semi-supervised learning. Pooled and re-split for standard "
-                "supervised fine-tuning with stratified k-fold CV."
+            "split_rationale": (
+                "Pooled all labeled examples, created a stratified held-out test set, "
+                "then ran stratified k-fold CV on the remaining train_dev data."
             ),
+        },
+        "train_dev_indices": train_dev_indices.tolist(),
+        "test_indices": test_indices.tolist(),
+        "train_dev_label_dist": {
+            DECODED_LABELS[lbl]: int(cnt) for lbl, cnt in sorted(train_dev_labels.value_counts().items())
+        },
+        "test_label_dist": {
+            DECODED_LABELS[lbl]: int(cnt) for lbl, cnt in sorted(test_labels.value_counts().items())
         },
         "folds": [],
     }
@@ -168,7 +181,7 @@ def save_splits(full_df: pd.DataFrame, folds: list, output_dir=SPLITS_DIR, k: in
         splits["folds"].append(fold_info)
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    splits_path = output_dir / f"splits_k{k}_seed{seed}.json"
+    splits_path = output_dir / f"splits_holdout20_k{k}_seed{seed}.json"
     with open(splits_path, "w") as f:
         json.dump(splits, f, indent=2)
 
@@ -190,7 +203,7 @@ def load_splits(k: int = 5, seed: int = 7, splits_dir=SPLITS_DIR) -> dict:
     :type seed: int
     :param splits_dir: directory containing the splits JSON
     """
-    splits_path = splits_dir / f"splits_k{k}_seed{seed}.json"
+    splits_path = splits_dir / f"splits_holdout20_k{k}_seed{seed}.json"
     if not splits_path.exists():
         raise FileNotFoundError(
             f"No splits at {splits_path}. Run save_splits() first."
@@ -230,12 +243,27 @@ def get_fold_from_disk(full_df: pd.DataFrame, fold: int = None, k: int = 5, seed
         val_dfs.append(full_df.iloc[fold_info["val_indices"]].copy())
     return train_dfs, val_dfs
 
+def get_test_from_disk(full_df, k=5, seed=7):
+    """
+    Load held-out test dataframe from saved indices.
+    """
+    splits = load_splits(k=k, seed=seed)
+    test_idx = splits["test_indices"]
+    return full_df.iloc[test_idx].copy()
+
+def get_train_dev_from_disk(full_df, k=5, seed=7):
+    """
+    Load train_dev dataframe from saved indices.
+    """
+    splits = load_splits(k=k, seed=seed)
+    train_dev_idx = splits["train_dev_indices"]
+    return full_df.iloc[train_dev_idx].copy()
 
 # =====================================================================
 # Sanity Check
 # =====================================================================
 
-def sanity_check(full_dataset: pd.DataFrame, kfold_val, fold_num: int = 1, n_examples: int = 3):
+def sanity_check(full_dataset, kfold_val, train_dev_indices, test_indices, fold_num=1, n_examples=3):    
     """
     Validates kfold splits: leakage, distribution, sample rows, duplicates.
 
@@ -290,21 +318,43 @@ def sanity_check(full_dataset: pd.DataFrame, kfold_val, fold_num: int = 1, n_exa
     else:
         print("Duplicate sentence-pairs: skipped (missing text columns)")
 
-    print("====================================================================\n")
+    train_dev_labels = full_dataset.iloc[train_dev_indices]["exaggeration_label"]
+    test_labels = full_dataset.iloc[test_indices]["exaggeration_label"]
 
-sanity_check(full_dataset, kfold_val)
+    print("\nTrain/dev label counts:")
+    print(train_dev_labels.value_counts(dropna=False).rename(index=label_map))
+    print("\nTrain/dev label %:")
+    print((train_dev_labels.value_counts(normalize=True) * 100).rename(index=label_map).round(2))
+
+    print("\nHeld-out test label counts:")
+    print(test_labels.value_counts(dropna=False).rename(index=label_map))
+    print("\nHeld-out test label %:")
+    print((test_labels.value_counts(normalize=True) * 100).rename(index=label_map).round(2))
+
+    test_overlap = set(train_dev_indices).intersection(set(test_indices))
+    assert len(test_overlap) == 0, f"Leakage between train_dev and test: {len(test_overlap)} overlapping indices"
+    print("\nNo leakage: train_dev and test indices are disjoint.")
+
+    print("====================================================================\n")
 
 
 # =====================================================================
 # Save & Verify
 # =====================================================================
 
-save_splits(full_dataset, kfold_val, k=5, seed=7)
 
-# round-trip verify: load back and confirm indices match
+sanity_check(full_dataset, kfold_val, train_dev_indices, test_indices)
+
+save_splits(full_dataset, train_dev_indices, test_indices, kfold_val, k=5, seed=7, test_size=0.2)
+
 print("Verifying round-trip from disk...")
 loaded = load_splits(k=5, seed=7)
+
 for fold_idx, (train_idx, val_idx) in enumerate(kfold_val):
     assert loaded["folds"][fold_idx]["train_indices"] == train_idx.tolist(), f"Fold {fold_idx} train mismatch"
     assert loaded["folds"][fold_idx]["val_indices"] == val_idx.tolist(), f"Fold {fold_idx} val mismatch"
-print(f"Round-trip OK — {len(kfold_val)} folds verified against {SPLITS_DIR / 'splits_k5_seed7.json'}")
+
+assert loaded["train_dev_indices"] == train_dev_indices.tolist(), "train_dev indices mismatch"
+assert loaded["test_indices"] == test_indices.tolist(), "test indices mismatch"
+
+print(f"Round-trip OK — {len(kfold_val)} folds + held-out test verified against {SPLITS_DIR / 'splits_holdout20_k5_seed7.json'}")
