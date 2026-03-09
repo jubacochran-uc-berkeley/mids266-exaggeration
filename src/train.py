@@ -1,3 +1,4 @@
+
 """
 Training pipeline for exaggeration detection experiments.
 
@@ -49,7 +50,7 @@ def parse_args():
 # Tokenization
 # =====================================================================
 
-def tokenize_fold(df, tokenizer, max_length):
+def tokenize_df(df, tokenizer, max_length):
 
     ds = Dataset.from_pandas(df, preserve_index=False)
 
@@ -57,11 +58,11 @@ def tokenize_fold(df, tokenizer, max_length):
         return tokenizer(examples["abstract_conclusion"],
         examples["press_release_conclusion"], 
         truncation=True, padding="max_length", 
-        max_length=maxlength
+        max_length=max_length
         )
     
     cols_to_remove = [c for c in ds.column_names if c != "exaggeration_label"]
-    ds = ds.map(_tokenizer, batched=True, remove_columns=cols_to_remove)
+    ds = ds.map(_tokenize, batched=True, remove_columns=cols_to_remove)
     ds = ds.rename_column("exaggeration_label", "labels")
     ds.set_format("torch")
     return ds
@@ -76,3 +77,37 @@ def compute_metrics(eval_pred):
     preds = np.argmax(logits, axis=1)
     return {"macro_f1": f1_score(labels, preds, average="macro")}
 
+# =====================================================================
+# Fold Training
+# =====================================================================
+
+def train_single_fold(fold_idx, train_ds, val_ds, config):
+    """
+    Train and evaluate a single fold.
+
+    :param fold_idx: fold number (0 to k-1)
+    :type fold_idx: int
+    :param train_ds: tokenized training dataset for this fold
+    :type train_ds: Dataset
+    :param val_ds: tokenized validation dataset for this fold
+    :type val_ds: Dataset
+    :param config: merged experiment config
+    :type config: dict
+    :return: tuple of (fold_result dict, trained Trainer instance)
+    :rtype: tuple
+    """
+
+    print(f"\n{'='*60}")
+
+
+
+
+
+
+# =====================================================================
+# Entry Point
+# =====================================================================
+
+if __name__ == "__main__":
+    args = parse_args()
+    run_experiment(args.config)
