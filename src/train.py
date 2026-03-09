@@ -70,4 +70,9 @@ def tokenize_fold(df, tokenizer, max_length):
 # Metrics
 # =====================================================================
 
-def compute_metrics()
+def compute_metrics(eval_pred):
+    """ Compute macro f1 from trainers eval predictions"""
+    logits, labels = eval_pred
+    preds = np.argmax(logits, axis=1)
+    return {"macro_f1": f1_score(labels, preds, average="macro")}
+
