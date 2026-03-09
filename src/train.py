@@ -98,7 +98,55 @@ def train_single_fold(fold_idx, train_ds, val_ds, config):
     """
 
     print(f"\n{'='*60}")
+    print(f"  Fold {fold_idx} | {config['model_name']} | {config['finetune_method']}")
+    print(f"{'='*60}")
 
+    #New model per fold
+    model = AutoModelForSequenceClassification.from_pretrained(
+        config["model_name"]
+        num_labels=3,
+    )
+
+    fold_output_dir = srt(here(config["output_dir"]) / f"fold-{fold_idx}")
+
+    #Training Args
+    training_args = TrainingArguments(
+        output_dir=fold_output_dir,
+        eval_strategy=config["eval_strategy"],
+        save_strategy=config["save_strategy"],
+        learning_rate=config["learning_rate"],
+        per_device_train_batch_size=config["per_device_train_batch_size"],
+        weight_decay=config["weight_decay"],
+        warmup_ratio=config["warmup_ratio"],
+        num_train_epochs=config["num_train_epochs"],
+        load_best_model_at_end=config["load_best_model_at_end"],
+        metric_for_best_model=config["metric_for_best_model"],
+        greater_is_better=config["greater_is_better"],
+        fp16=config["fp16"],
+        seed=config["seed"],
+        logging_steps=10,
+        report_to=config["report_to"],
+        save_total_limit=1,
+    )
+
+    #Trainer
+    trainer = Trainer(
+        model = model,
+        args=training_args,
+        train_dataset=train_ds,
+        eval_dataset=val_ds,
+        compute_metrics=compute_metrics,
+        callbacks=[EarlyStoppingCallback(
+            early_stopping_patience=config["early_stopping_patience"]
+        )],
+    )
+
+    #Now training
+    trainer.train()
+    eval_results = trainer.evaluate()
+
+    
+    
 
 
 
