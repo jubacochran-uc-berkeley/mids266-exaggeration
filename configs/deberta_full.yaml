@@ -1,0 +1,10 @@
+# deberta_full experiment config
+# configs/deberta_full.yaml
+_base_: base.yaml
+
+model_name: "microsoft/deberta-v3-large"
+finetune_method: "full"
+output_dir: "results/deberta-full"
+fp16: false #overriding due to issue with True. This violates our current fixed params but we disucssed all good
+learning_rate: 2.0e-6 #trying to get better signal
+warmup_ratio: 0.15
