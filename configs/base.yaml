@@ -13,9 +13,9 @@ seed: 42 # keeping us consistent for the trainer
 report_to: "none" # researched this isn't useful until after we complete hypertuning
 optim: "adamw_torch_fused" #by #T5 fixed their optimizer ours defaults here.
 
-#current search space best trial RoBERTa-base, 5 fold, Optuna trial 49 f1 = 0.58252
-learning_rate: 2.5873758209424307e-05
+#current search space best trial RoBERTa-base, 5 fold, Optuna trial 48 f1 = 0.54054
+learning_rate: 2.601816814673036e-05
 per_device_train_batch_size: 8
-weight_decay: 0.08645440342049153
-warmup_ratio: 0.05761304616532463
-num_train_epochs: 19
+weight_decay: 0.01603254157402771
+warmup_ratio: 0.05638483428904486
+num_train_epochs: 30

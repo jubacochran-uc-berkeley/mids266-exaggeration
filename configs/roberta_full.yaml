@@ -1,1 +1,7 @@
 # roberta_full experiment config
+# configs/roberta_full.yaml
+_base_: base.yaml #base file with fixed parameters that we agreed on and hypertuned
+
+model_name: "roberta-base" #checkpoint name
+finetune_method: "full" #tuning method
+output_dir: "results/roberta-full" #rest place
