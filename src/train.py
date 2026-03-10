@@ -5,6 +5,7 @@ Training pipeline for exaggeration detection experiments.
 Usage:
     python src/train.py --config configs/roberta_full.yaml
 """
+import torch
 import argparse
 import json
 import numpy as np
@@ -105,6 +106,15 @@ def train_single_fold(fold_idx, train_ds, val_ds, config):
         num_labels=3
     )
 
+    #Parameter count
+    #https://docs.pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module.parameters
+    total_params = sum(p.numel() for p in model.parameters())
+    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    print(f"Total params: {total_params:,} | Trainable: {trainable_params:,} ({100 * trainable_params / total_params:.2f}%)")
+
+    #flushing memory stats
+    torch.cuda.reset_peak_memory_stats()
+
     fold_output_dir = str(here(config["output_dir"]) / f"fold-{fold_idx}")
 
     #Training Args
@@ -143,6 +153,10 @@ def train_single_fold(fold_idx, train_ds, val_ds, config):
     trainer.train()
     eval_results = trainer.evaluate()
 
+    # Peak memory after training
+    peak_memory_mb = torch.cuda.max_memory_allocated() / 1024 ** 2
+    print(f"Peak GPU memory: {peak_memory_mb:.0f} MB")
+
     # Detailed predictions for classification report
     predictions = trainer.predict(val_ds)
     preds = np.argmax(predictions.predictions, axis=-1)
@@ -153,12 +167,15 @@ def train_single_fold(fold_idx, train_ds, val_ds, config):
         target_names=list(DECODED_LABELS.values()),
         output_dict=True,
     )
-
+    #Gathering information for Lora comparison and model comparision
     fold_result = {
         "fold": fold_idx,
         "macro_f1": eval_results["eval_macro_f1"],
         "eval_loss": eval_results["eval_loss"],
         "classification_report": report,
+        "total_params": total_params,
+        "trainable_params": trainable_params,
+        "peak_gpu_memory_mb": round(peak_memory_mb,1)
     }
 
     print(f"Fold {fold_idx} macro_f1: {eval_results['eval_macro_f1']:.4f}")
