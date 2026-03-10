@@ -17,3 +17,12 @@ __pycache__/
 .DS_Store
 .vscode/
 .idea/
+
+# ...except experiment_results.json files
+!results/
+!results/*/
+!results/*/experiment_results.json
+
+# ...except trial 48 (best trial) for all parameters
+!results/optuna/tpe_plots_folds_test_split_removed/
+!results/optuna/tpe_plots_folds_test_split_removed/*_trial48.png
