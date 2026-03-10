@@ -1,1 +1,7 @@
 # pubmedbert_full experiment config
+# configs/pubmedbert_full.yaml
+_base_: base.yaml
+
+model_name: "microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract"
+finetune_method: "full"
+output_dir: "results/pubmedbert-full"
