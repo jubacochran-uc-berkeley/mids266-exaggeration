@@ -175,7 +175,10 @@ def train_single_fold(fold_idx, train_ds, val_ds, config):
         "classification_report": report,
         "total_params": total_params,
         "trainable_params": trainable_params,
-        "peak_gpu_memory_mb": round(peak_memory_mb,1)
+        "peak_gpu_memory_mb": round(peak_memory_mb,1),
+        "total_training_steps": trainer.state.global_step, #total gradient changes, delta gradient
+        "epochs_completed": trainer.state.epoch, # number of steps before early stopping
+        "total_parameter_updates": trainer.state.global_step * trainable_params, #full finetuning gradient update
     }
 
     print(f"Fold {fold_idx} macro_f1: {eval_results['eval_macro_f1']:.4f}")
