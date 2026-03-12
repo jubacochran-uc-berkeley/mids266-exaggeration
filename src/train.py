@@ -29,6 +29,7 @@ from src.data_holdout import (
     get_test_from_disk,
     DECODED_LABELS,
 )
+from peft import LoraConfig, get_peft_model, TaskType
 
 # =====================================================================
 # CLI
@@ -105,6 +106,10 @@ def train_single_fold(fold_idx, train_ds, val_ds, config):
         config["model_name"],
         num_labels=3
     )
+
+    if config["finetune_method"] == "lora":
+        model = apply_lora(model, config)
+
 
     #Parameter count
     #https://docs.pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module.parameters
@@ -313,6 +318,28 @@ def run_experiment(config_path):
     print(f"\nResults saved to {results_path}")
 
 
+# =====================================================================
+# Lora finetuning
+# =====================================================================
+
+def apply_lora(model, config):
+    """Wrap a pretrained model with Lora adapters.
+       This will only train A and B matricies + classification head while other are frozen.
+    """
+    lora_config = LoraConfig(
+        r=config["r"],
+        lora_alpha=config["lora_alpha"],
+        #lora_dropout=config["lora_dropout"],
+        bias=config["bias"],
+        target_modules=config["target_modules"],
+        task_type=TaskType[config["task_type"]],
+    )
+    model = get_peft_model(model, lora_config)
+    model.print_trainable_parameters()
+    return model
+
+    
+    
 
 
 

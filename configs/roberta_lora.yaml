@@ -1,1 +1,20 @@
 # roberta_lora experiment config
+# configs/roberta_lora.yaml
+#https://arxiv.org/pdf/2106.09685 page 19 MNLI
+_base_: base.yaml #base file with fixed parameters that we agreed on and hypertuned
+
+model_name: "roberta-base" #checkpoint name
+finetune_method: "lora" #tuning method
+output_dir: "results/roberta_lora" #rest place
+task_type: "SEQ_CLS" #model task
+r: 2
+lora_alpha: 4
+lora_dropout: 0.05
+bias: "none"
+#parameters from the paper
+target_modules: ["query","value"]
+early_stopping_patience: 50
+weight_decay: 0.0
+warmup_ratio: 0.06
+lr_scheduler_type: "linear" #Must be see according to Lora paper
+learning_rate: 5.0e-4 #must be set according to Lora paper
