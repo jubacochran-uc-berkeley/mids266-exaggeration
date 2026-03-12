@@ -329,7 +329,7 @@ def apply_lora(model, config):
     lora_config = LoraConfig(
         r=config["r"],
         lora_alpha=config["lora_alpha"],
-        #lora_dropout=config["lora_dropout"],
+        lora_dropout=config["lora_dropout"],
         bias=config["bias"],
         target_modules=config["target_modules"],
         task_type=TaskType[config["task_type"]],
