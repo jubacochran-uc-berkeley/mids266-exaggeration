@@ -1,0 +1,8 @@
+# Roberta transfer learning
+# configs/roberta_frozen.yaml
+
+_base_: base.yaml
+
+model_name: "roberta-base"
+finetune_method: "frozen"
+output_dir: "results/roberta-frozen"

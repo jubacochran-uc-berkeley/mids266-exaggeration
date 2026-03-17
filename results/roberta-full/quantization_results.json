@@ -1,0 +1,24 @@
+{
+  "timestamp": "2026-03-16T17:17:01.262369",
+  "config_path": "configs/roberta_full.yaml",
+  "model_name": "roberta-base",
+  "finetune_method": "full",
+  "test_size": 133,
+  "results": [
+    {
+      "precision": "FP32",
+      "macro_f1": 0.4408368448288608,
+      "model_size_mb": 475.57
+    },
+    {
+      "precision": "FP16",
+      "macro_f1": 0.4408368448288608,
+      "model_size_mb": 237.83
+    },
+    {
+      "precision": "INT8",
+      "macro_f1": 0.40873807939676204,
+      "model_size_mb": 230.93
+    }
+  ]
+}

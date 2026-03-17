@@ -38,12 +38,10 @@ from peft import LoraConfig, get_peft_model, TaskType
 #args parse to build CLI interfaces with python
 #This captures the config from the cli
 def parse_args():
-    """
-    Parse command line arguments
-    https://realpython.com/command-line-interfaces-python-argparse/
-    """
     parser = argparse.ArgumentParser(description="Train exaggeration detection model")
     parser.add_argument("--config", type=str, required=True, help="Path to experiment YAML config")
+    parser.add_argument("--multi-seed", action="store_true", help="Run multi-seed statistical evaluation")
+    parser.add_argument("--n-runs", type=int, default=100, help="Number of seed runs (default: 100)")
     return parser.parse_args()
 
 # =====================================================================
@@ -109,6 +107,8 @@ def train_single_fold(fold_idx, train_ds, val_ds, config):
 
     if config["finetune_method"] == "lora":
         model = apply_lora(model, config)
+    elif config["finetune_method"] == "frozen":
+        model = freeze_base(model)
 
 
     #Parameter count
@@ -339,9 +339,140 @@ def apply_lora(model, config):
     return model
 
     
+# =====================================================================
+# multi seed runs
+# =====================================================================
+
+def run_multi_seed(config_path, n_runs=100, seed_start=1, seed_step=2):
+    """
+    Run experiment across multiple seeds for statistical testing.
     
+    Generates seeds: [1, 3, 5,...]
+    Results saved to results/multi_seed/{model-method}/
+    
+    :param config_path: path to experiment YAML config
+    :param n_runs: number of independent training runs
+    :param seed_start: first seed value
+    :param seed_step: step between seeds
+    """
+    seeds = list(range(seed_start, seed_start + n_runs * seed_step, seed_step))
+    
+    config = load_config(config_path)
+    model_label = f"{config['model_name'].split('/')[-1]}-{config['finetune_method']}"
+    
+    multi_seed_dir = here("results") / "multi_seed" / model_label
+    multi_seed_dir.mkdir(parents=True, exist_ok=True)
+    
+    all_results = []
+    
+    for i, seed in enumerate(seeds):
+        print(f"\n{'='*60}")
+        print(f"  Run {i+1}/{n_runs} | Seed {seed} | {model_label}")
+        print(f"{'='*60}")
+        
+        config = load_config(config_path)
+        config["seed"] = seed
+        config["output_dir"] = str(multi_seed_dir / f"seed-{seed}")
+        
+        result = _run_single_seed(config)
+        all_results.append(result)
+        
+        # Save incrementally if failure happens
+        _save_multi_seed_summary(all_results, seeds[:i+1], config_path, model_label, multi_seed_dir)
+    
+    summary = _save_multi_seed_summary(all_results, seeds, config_path, model_label, multi_seed_dir)
+    
+    print(f"\n{'='*60}")
+    print(f"  Multi-seed complete: {model_label} ({n_runs} runs)")
+    print(f"  Test F1:  {summary['test_f1_mean']:.4f} ± {summary['test_f1_std']:.4f}")
+    print(f"  CV F1:    {summary['cv_f1_mean']:.4f} ± {summary['cv_f1_std']:.4f}")
+    print(f"{'='*60}")
+    
+    return summary
 
 
+def _run_single_seed(config):
+    """
+    Run one full experiment with a given config.
+    Same logic as run_experiment but returns a summary dict.
+    """
+    full_df = get_pooled_df()
+    train_folds, val_folds = get_fold_from_disk(full_df, k=config["cv_k"], seed=config["cv_seed"])
+    test_df = get_test_from_disk(full_df, k=config["cv_k"], seed=config["cv_seed"])
+    
+    tokenizer = AutoTokenizer.from_pretrained(config["model_name"])
+    train_datasets = [tokenize_df(df, tokenizer, config["max_length"]) for df in train_folds]
+    val_datasets = [tokenize_df(df, tokenizer, config["max_length"]) for df in val_folds]
+    test_ds = tokenize_df(test_df, tokenizer, config["max_length"])
+    
+    fold_results = []
+    best_f1 = -1
+    best_trainer = None
+    
+    for fold_idx in range(len(train_folds)):
+        result, trainer = train_single_fold(
+            fold_idx=fold_idx,
+            train_ds=train_datasets[fold_idx],
+            val_ds=val_datasets[fold_idx],
+            config=config,
+        )
+        fold_results.append(result)
+        if result["macro_f1"] > best_f1:
+            best_f1 = result["macro_f1"]
+            best_trainer = trainer
+    
+    f1_scores = [r["macro_f1"] for r in fold_results]
+    test_results = evaluate_on_test(best_trainer, test_ds)
+    
+    return {
+        "seed": config["seed"],
+        "cv_mean_f1": round(float(np.mean(f1_scores)), 4),
+        "cv_std_f1": round(float(np.std(f1_scores)), 4),
+        "cv_per_fold": f1_scores,
+        "test_macro_f1": test_results["macro_f1"],
+    }
+
+
+def _save_multi_seed_summary(all_results, seeds_completed, config_path, model_label, multi_seed_dir):
+    """
+    Save summary JSON. Called incrementally so progress survives crashes.
+    """
+    test_f1s = [r["test_macro_f1"] for r in all_results]
+    cv_f1s = [r["cv_mean_f1"] for r in all_results]
+    
+    summary = {
+        "timestamp": datetime.now().isoformat(),
+        "config_path": config_path,
+        "model_label": model_label,
+        "n_runs_completed": len(all_results),
+        "seeds_completed": seeds_completed,
+        "per_seed_results": all_results,
+        "test_f1_scores": test_f1s,
+        "test_f1_mean": round(float(np.mean(test_f1s)), 4),
+        "test_f1_std": round(float(np.std(test_f1s)), 4),
+        "cv_f1_scores": cv_f1s,
+        "cv_f1_mean": round(float(np.mean(cv_f1s)), 4),
+        "cv_f1_std": round(float(np.std(cv_f1s)), 4),
+    }
+    
+    summary_path = multi_seed_dir / "multi_seed_summary.json"
+    with open(summary_path, "w") as f:
+        json.dump(summary, f, indent=2)
+    
+    return summary   
+
+# =====================================================================
+# Freeze all layers but classifier
+# =====================================================================
+
+def freeze_base(model):
+    """
+    Freeze all base model weights. Only classification head trains.
+    """
+    for name, param in model.named_parameters():
+        if "classifier" not in name:
+            param.requires_grad = False
+    return model
 
 # =====================================================================
 # Entry Point
@@ -349,4 +480,8 @@ def apply_lora(model, config):
 
 if __name__ == "__main__":
     args = parse_args()
-    run_experiment(args.config)
+    if args.multi_seed:
+        run_multi_seed(args.config, n_runs=args.n_runs)
+    else:
+        run_experiment(args.config)
+
