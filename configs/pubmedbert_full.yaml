@@ -2,6 +2,6 @@
 # configs/pubmedbert_full.yaml
 _base_: base.yaml
 
-model_name: "microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract"
+model_name: "microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext"
 finetune_method: "full"
 output_dir: "results/pubmedbert-full"

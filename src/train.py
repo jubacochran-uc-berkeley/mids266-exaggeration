@@ -110,7 +110,6 @@ def train_single_fold(fold_idx, train_ds, val_ds, config):
     elif config["finetune_method"] == "frozen":
         model = freeze_base(model)
 
-
     #Parameter count
     #https://docs.pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module.parameters
     total_params = sum(p.numel() for p in model.parameters())
@@ -291,9 +290,10 @@ def run_experiment(config_path):
     print(f"{'='*60}")
 
     # --- Step 6: Evaluate best fold model on held-out test ---
-    best_fold_idx = f1_scores.index(best_f1)
-    print(f"\nEvaluating best fold (fold {best_fold_idx}) on held-out test set...")
-    test_results = evaluate_on_test(best_trainer, test_ds)
+    ## COMMENTED OUT DURING HYPERPARAMETER TUNING
+    #best_fold_idx = f1_scores.index(best_f1)
+    #print(f"\nEvaluating best fold (fold {best_fold_idx}) on held-out test set...")
+    #test_results = evaluate_on_test(best_trainer, test_ds)
 
     # --- Step 7: Save results ---
     output_dir = here(config["output_dir"])
@@ -308,7 +308,7 @@ def run_experiment(config_path):
             "per_fold_f1": f1_scores,
         },
         "fold_results": fold_results,
-        "test_results": test_results,
+        #"test_results": test_results,
     }
 
     results_path = output_dir / "experiment_results.json"
@@ -422,14 +422,14 @@ def _run_single_seed(config):
             best_trainer = trainer
     
     f1_scores = [r["macro_f1"] for r in fold_results]
-    test_results = evaluate_on_test(best_trainer, test_ds)
+    #test_results = evaluate_on_test(best_trainer, test_ds)
     
     return {
         "seed": config["seed"],
         "cv_mean_f1": round(float(np.mean(f1_scores)), 4),
         "cv_std_f1": round(float(np.std(f1_scores)), 4),
         "cv_per_fold": f1_scores,
-        "test_macro_f1": test_results["macro_f1"],
+        #"test_macro_f1": test_results["macro_f1"],
     }
 
 

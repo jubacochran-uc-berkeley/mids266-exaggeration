@@ -1,1 +1,22 @@
 # pubmedbert_lora experiment config
+# configs/pubmedbert_lora.yaml
+#https://arxiv.org/pdf/2106.09685 inspo paper
+_base_: base.yaml #base file with fixed parameters
+
+model_name: "microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext"
+finetune_method: "lora" #tuning method
+output_dir: "results/pubmedbert_lora" #rest place
+task_type: "SEQ_CLS" #model task
+r: 8
+lora_alpha: 16
+lora_dropout: 0.1
+early_stopping_patience: 5
+bias: "none"
+
+
+#parameters from the paper
+target_modules: ["query", "key", "value", "dense"] # as recommended in OH and recent lit
+weight_decay: 0.0
+warmup_ratio: 0.06
+lr_scheduler_type: "linear" #Must be see according to Lora paper
+learning_rate: 0.0005

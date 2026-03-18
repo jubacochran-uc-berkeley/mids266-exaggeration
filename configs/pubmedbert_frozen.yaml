@@ -1,0 +1,12 @@
+# Pubmedbert transfer learning - training classification layer only 
+# configs/pubmedbert_frozen.yaml
+
+_base_: base.yaml
+
+model_name: "microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext"
+finetune_method: "frozen"
+output_dir: "results/pubmedbert_frozen2"
+
+learning_rate: 0.005
+early_stopping_patience: 5
+weight_decay: 0.0
