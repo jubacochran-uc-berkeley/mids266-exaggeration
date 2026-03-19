@@ -291,9 +291,9 @@ def run_experiment(config_path):
 
     # --- Step 6: Evaluate best fold model on held-out test ---
     ## COMMENTED OUT DURING HYPERPARAMETER TUNING
-    #best_fold_idx = f1_scores.index(best_f1)
-    #print(f"\nEvaluating best fold (fold {best_fold_idx}) on held-out test set...")
-    #test_results = evaluate_on_test(best_trainer, test_ds)
+    best_fold_idx = f1_scores.index(best_f1)
+    print(f"\nEvaluating best fold (fold {best_fold_idx}) on held-out test set...")
+    test_results = evaluate_on_test(best_trainer, test_ds)
 
     # --- Step 7: Save results ---
     output_dir = here(config["output_dir"])
