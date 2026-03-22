@@ -3,11 +3,12 @@
 *.pt
 *.ckpt
 *.h5
-results/
+
 data/*.csv
 data/*.json
 data/*.parquet
 data/*.arrow
+
 .cache/
 __pycache__/
 *.pyc
@@ -18,11 +19,23 @@ __pycache__/
 .vscode/
 .idea/
 
-# ...except experiment_results.json files
-!results/
-!results/*/
-!results/*/experiment_results.json
+# Ignore everything under results by default
+results/**
 
-# ...except trial 48 (best trial) for all parameters
+# Re-open directories so specific files below can be tracked
+!results/
+!results/**/
+
+# Keep selected result JSON artifacts anywhere under results
+!results/**/multi_seed_summary.json
+!results/**/experiment_results.json
+
+# Keep only best-trial plots in these two folders
 !results/optuna/tpe_plots_folds_test_split_removed/
 !results/optuna/tpe_plots_folds_test_split_removed/*_trial48.png
+
+!results/optuna/tpe_plots_pubmedbert_final_1/
+!results/optuna/tpe_plots_pubmedbert_final_1/*_trial48.png
+
+# Optional placeholder ignore
+results/.gitkeep
