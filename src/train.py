@@ -308,7 +308,7 @@ def run_experiment(config_path):
             "per_fold_f1": f1_scores,
         },
         "fold_results": fold_results,
-        #"test_results": test_results,
+        "test_results": test_results,
     }
 
     results_path = output_dir / "experiment_results.json"
@@ -422,14 +422,14 @@ def _run_single_seed(config):
             best_trainer = trainer
     
     f1_scores = [r["macro_f1"] for r in fold_results]
-    #test_results = evaluate_on_test(best_trainer, test_ds)
+    test_results = evaluate_on_test(best_trainer, test_ds)
     
     return {
         "seed": config["seed"],
         "cv_mean_f1": round(float(np.mean(f1_scores)), 4),
         "cv_std_f1": round(float(np.std(f1_scores)), 4),
         "cv_per_fold": f1_scores,
-        #"test_macro_f1": test_results["macro_f1"],
+        "test_macro_f1": test_results["macro_f1"],
     }
 
 
