@@ -96,6 +96,15 @@ def get_model_size_mb(model):
         os.unlink(f.name)
     return round(size_mb, 2)
 
+def get_model_param_info(model):
+    """
+    Extract parameter counts from loaded checkpoint.
+    Mirrors train.py for direct comparison.
+    """
+    total_params = sum(p.numel() for p in model.parameters())
+    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    return total_params, trainable_params
+
 # =====================================================================
 # Load Trained Checkpoint
 # =====================================================================
@@ -121,6 +130,10 @@ def load_trained_model(config):
         if checkpoint_path and best_metric > best_f1:
             best_f1 = best_metric
             best_checkpoint = checkpoint_path
+            training_meta = { #get the these datapoints for later
+                "total_training_steps": trainer_state.get("global_step"),
+                "epochs_completed": trainer_state.get("epoch"),
+            }
     
     if best_checkpoint is None:
         raise FileNotFoundError(
@@ -134,7 +147,7 @@ def load_trained_model(config):
         num_labels=3,
     )
     model.eval()
-    return model
+    return model, training_meta
 
 # =====================================================================
 # quantization error measurement
@@ -189,10 +202,11 @@ def convert_to_int8(model):
     for name, param in model.named_parameters():
         if param.dim() >= 2:
             fp32_weights[name] = param.detach().cpu().float().numpy()
-    #setting dynamic here
+    #setting dynamic here -- Weights only
     #This is the simplest approach no calibration
+    #https://docs.pytorch.org/docs/2.11/generated/torch.ao.quantization.quantize_dynamic.html#torch.ao.quantization.quantize_dynamic
     model_int8 = torch.quantization.quantize_dynamic(
-        copy.deepcopy(model).cpu(),#torch forces us to use cpu..to use GPU we'd have to shift to onnx
+        copy.deepcopy(model).cpu(),#torch forces us to use cpu..to use GPU we'd have to shift to onnx which is a nightmare
         {torch.nn.Linear},
         dtype=torch.qint8, #transform to int8
     )
@@ -235,7 +249,8 @@ def run_quantization(config_path):
     print(f"\nQuantization Evaluation: {config['model_name']} | {config['finetune_method']}")
 
     # Load model and test data
-    model = load_trained_model(config)
+    model, training_meta = load_trained_model(config) #from configs
+    total_params, trainable_params = get_model_param_info(model)
     full_df = get_pooled_df()
     test_df = get_test_from_disk(full_df, k=config["cv_k"], seed=config["cv_seed"])
     tokenizer = AutoTokenizer.from_pretrained(config["model_name"])
@@ -255,7 +270,7 @@ def run_quantization(config_path):
     int8_result = evaluate_precision(model_int8, test_ds, "INT8", use_cpu=True)
     del model_int8
 
-    # Save results
+    # Save results aligned with train.py for comparison
     output_dir = here(config["output_dir"])
     record = {
         "timestamp": datetime.now().isoformat(),
@@ -263,6 +278,14 @@ def run_quantization(config_path):
         "model_name": config["model_name"],
         "finetune_method": config["finetune_method"],
         "test_size": len(test_ds),
+        "total_params": total_params,
+        "trainable_params": trainable_params,
+        "trainable_ratio": round(trainable_params / total_params, 6),
+        "total_training_steps": training_meta.get("total_training_steps"),
+        "epochs_completed": training_meta.get("epochs_completed"),
+        "total_parameter_updates": (
+            training_meta.get("total_training_steps", 0) * trainable_params
+        ),
         "results": [fp32_result, fp16_result, int8_result],
     }
 
