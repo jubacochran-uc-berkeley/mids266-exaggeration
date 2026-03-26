@@ -1,0 +1,17 @@
+_base_: base.yaml #base file with fixed parameters
+
+model_name: "microsoft/deberta-v3-large"
+finetune_method: "lora" #tuning method
+output_dir: "results/deberta_lora" #rest place
+task_type: "SEQ_CLS" #model task
+r: 2
+lora_alpha: 8
+lora_dropout: 0.1
+early_stopping_patience: 5
+#bias: "none"
+per_device_train_batch_size': 8
+target_modules: ["query", "key", "value", "dense"] # as recommended in OH and recent lit
+weight_decay: 0.06135622195040731
+warmup_ratio: 0.19204428145852243
+#lr_scheduler_type: "linear" #Must be see according to Lora paper
+learning_rate': 1.0609624330107086e-05

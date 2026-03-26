@@ -7,16 +7,14 @@ model_name: "microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext"
 finetune_method: "lora" #tuning method
 output_dir: "results/pubmedbert_lora" #rest place
 task_type: "SEQ_CLS" #model task
-r: 8
-lora_alpha: 16
+r: 16
+lora_alpha: 32
 lora_dropout: 0.1
 early_stopping_patience: 5
 bias: "none"
-
-
-#parameters from the paper
+per_device_train_batch_size': 8
 target_modules: ["query", "key", "value", "dense"] # as recommended in OH and recent lit
-weight_decay: 0.0
-warmup_ratio: 0.06
+weight_decay: 0.03500575278073154
+warmup_ratio: 0.18809558678514623
 lr_scheduler_type: "linear" #Must be see according to Lora paper
-learning_rate: 0.0005
+learning_rate': 0.0003755537454177177

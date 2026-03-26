@@ -6,3 +6,9 @@ _base_: base.yaml
 model_name: "roberta-base"
 finetune_method: "frozen"
 output_dir: "results/roberta-frozen"
+
+learning_rate: 0.04943018624063399
+per_device_train_batch_size': 8
+weight_decay': 0.06881360999565503
+warmup_ratio': 0.19571930271634483
+num_train_epochs': 24

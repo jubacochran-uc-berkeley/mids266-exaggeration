@@ -8,13 +8,14 @@ finetune_method: "lora" #tuning method
 output_dir: "results/roberta_lora" #rest place
 task_type: "SEQ_CLS" #model task
 r: 2
-lora_alpha: 4
+lora_alpha: 16
 lora_dropout: 0.05
 bias: "none"
 #parameters from the paper
 target_modules: ["query","value"]
-early_stopping_patience: 50
-weight_decay: 0.0
-warmup_ratio: 0.06
+#early_stopping_patience: 50
+weight_decay: 0.04558767968874666
+warmup_ratio: 0.12016661619597607
 lr_scheduler_type: "linear" #Must be see according to Lora paper
-learning_rate: 5.0e-4 #must be set according to Lora paper
+learning_rate: 0.0004967831504102713
+per_device_train_batch_size': 8

@@ -4,7 +4,7 @@ _base_: base.yaml
 
 model_name: "microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext"
 finetune_method: "full"
-output_dir: "results/pubmedbert-full-50"
+output_dir: "results/pubmedbert-full"
 
 #Parmas from pubmedbert hypertuning
 learning_rate: 5.2677595312912516e-05

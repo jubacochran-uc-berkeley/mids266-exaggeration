@@ -5,8 +5,10 @@ _base_: base.yaml
 
 model_name: "microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext"
 finetune_method: "frozen"
-output_dir: "results/pubmedbert_frozen2"
+output_dir: "results/pubmedbert_frozen"
 
-learning_rate: 0.005
-early_stopping_patience: 5
-weight_decay: 0.0
+learning_rate: 0.015156709252430034
+per_device_train_batch_size': 8
+weight_decay': 0.06897032912868373
+warmup_ratio': 0.05425597330104267
+num_train_epochs': 23
