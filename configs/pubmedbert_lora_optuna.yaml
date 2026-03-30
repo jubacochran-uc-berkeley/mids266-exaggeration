@@ -1,0 +1,22 @@
+# pubmedbert_lora experiment config
+# configs/pubmedbert_lora_optuna.yaml
+#https://arxiv.org/pdf/2106.09685 inspo paper
+_base_: base.yaml #base file with fixed parameters
+
+model_name: "microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext"
+finetune_method: "lora" #tuning method
+output_dir: "results/pubmedbert_lora_optuna" #rest place
+task_type: "SEQ_CLS" #model task
+early_stopping_patience: 50
+bias: "none"
+
+
+#parameters from optuna
+target_modules: ["query", "key", "value", "dense"] # as determined by experiments
+r: 16
+lora_alpha: 32
+lora_dropout: 0.1
+weight_decay: 0.03500575278073154
+warmup_ratio: 0.18809558678514623
+lr_scheduler_type: "linear" #Must be see according to Lora paper
+learning_rate: 0.0003755537454177177

@@ -1,0 +1,15 @@
+# deberta transfer learning - training classification layer only 
+# configs/deberta_frozen_optuna.yaml
+
+_base_: base.yaml
+
+model_name: "microsoft/deberta-v3-base"
+finetune_method: "frozen"
+output_dir: "results/deberta_frozen_optuna"
+
+early_stopping_patience: 5
+learning_rate: 0.02942516466534336
+weight_decay: 6.150716379253567e-05
+warmup_ratio: 0.19147480893031213
+fp16: false
+

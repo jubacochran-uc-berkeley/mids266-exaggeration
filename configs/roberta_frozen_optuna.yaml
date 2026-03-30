@@ -1,0 +1,13 @@
+# Roberta transfer learning - training classification layer only 
+# configs/roberta_frozen.yaml
+
+_base_: base.yaml
+
+model_name: "roberta-base"
+finetune_method: "frozen"
+output_dir: "results/roberta_frozen_optuna"
+
+early_stopping_patience: 5
+learning_rate: 0.04943018624063399
+weight_decay: 0.06881360999565503
+warmup_ratio: 0.19571930271634483

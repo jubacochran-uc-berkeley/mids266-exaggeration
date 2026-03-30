@@ -1,0 +1,22 @@
+# roberta_lora_optuna experiment config
+# configs/roberta_lora_optuna.yaml
+#https://arxiv.org/pdf/2106.09685 inspo paper
+_base_: base.yaml #base file with fixed parameters
+
+model_name: "roberta-base"
+finetune_method: "lora" #tuning method
+output_dir: "results/roberta_lora_optuna" #rest place
+task_type: "SEQ_CLS" #model task
+early_stopping_patience: 50
+bias: "none"
+
+
+#parameters from  optuna
+target_modules: ["query", "key", "value", "dense", "out_proj"] # as determined by experiments
+weight_decay: 0.04558767968874666
+warmup_ratio: 0.12016661619597607
+lr_scheduler_type: "linear" #Must be see according to Lora paper
+learning_rate: 0.0004967831504102713
+r: 2
+lora_alpha: 16
+lora_dropout: 0.05
